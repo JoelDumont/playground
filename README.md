@@ -1,7 +1,7 @@
 # Bitcoin Traffic Control Center
 
 
-each transaction is a moving particle
+Each transaction is a moving particle
 
 blocks are containers
 
