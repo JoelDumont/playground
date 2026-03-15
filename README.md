@@ -1,2 +1,3 @@
-# dot-mission-control
-visualize polkadot on chain data
+# Playground
+
+Space for new ideas
