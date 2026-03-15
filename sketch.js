@@ -140,13 +140,16 @@ function startReplay(step) {
     const newNode = createCommit(step.newId, step.hash, oldNode.x, oldNode.y, 'rebased');
     newNode.alpha = 170;
 
+    // Space each rebased commit to the right of the previous one.
+    const horizontalSpacing = 170 + planIndex * COMMIT_RADIUS * 3;
+
     activeAnimation = {
         step,
         oldNode,
         node: newNode,
         startX: oldNode.x,
         startY: oldNode.y,
-        endX: mainHead.x + 170,
+        endX: mainHead.x + horizontalSpacing,
         endY: mainHead.y,
         message: step.message
     };
