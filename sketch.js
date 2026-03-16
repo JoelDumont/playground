@@ -1,43 +1,59 @@
-// Git Rebase Visualizer
-// Animates feature commits being replayed onto the latest main commit.
+// Git graph visualizer with two scenarios: rebase and merge.
 
+const CANVAS_WIDTH = 1240;
+const CANVAS_HEIGHT = 620;
 const COMMIT_RADIUS = 26;
 const REBASE_STEP_FRAMES = 80;
 const REBASE_PAUSE_FRAMES = 30;
+const MERGE_STEP_FRAMES = 95;
+const MERGE_PAUSE_FRAMES = 40;
 
 const UI = {
     background: [26, 31, 40],
-    panel: [31, 38, 49],
     grid: [45, 54, 69],
     text: [232, 238, 247],
     muted: [150, 162, 182],
     main: [74, 163, 255],
     feature: [243, 155, 74],
-    active: [120, 255, 166],
-    ghost: [123, 133, 151]
+    merge: [120, 255, 166]
 };
+
+let activeScenario = 'rebase';
 
 let commitNodes = [];
 let edges = [];
 let pointers = [];
+
 let rebasePlan = [];
-let activeAnimation = null;
-let animationFrame = 0;
-let planIndex = 0;
-let pauseFrames = 0;
+let rebaseAnimation = null;
+let rebaseFrame = 0;
+let rebasePlanIndex = 0;
+let rebasePauseFrames = 0;
 let rebaseDone = false;
 
+let mergeAnimation = null;
+let mergeFrame = 0;
+let mergePauseFrames = 0;
+let mergeDone = false;
+
 function setup() {
-    const canvas = createCanvas(1020, 620);
+    const canvas = createCanvas(CANVAS_WIDTH, CANVAS_HEIGHT);
     canvas.parent('canvas-container');
     textFont('Consolas');
+    bindScenarioControls();
     initScene();
 }
 
 function draw() {
     background(...UI.background);
     drawBackdrop();
-    updateRebaseAnimation();
+
+    if (activeScenario === 'rebase') {
+        updateRebaseAnimation();
+    } else {
+        updateMergeAnimation();
+    }
+
     drawEdges();
     drawCommitNodes();
     drawBranchPointers();
@@ -51,45 +67,114 @@ function keyPressed() {
     }
 }
 
+function bindScenarioControls() {
+    const buttons = document.querySelectorAll('.scenario-btn');
+    for (const button of buttons) {
+        button.addEventListener('click', () => {
+            const scenario = button.dataset.scenario;
+            if (scenario) {
+                setScenario(scenario);
+            }
+        });
+    }
+    updateScenarioButtons();
+}
+
+function setScenario(scenario) {
+    if (scenario !== 'rebase' && scenario !== 'merge') {
+        return;
+    }
+    activeScenario = scenario;
+    updateScenarioButtons();
+    initScene();
+}
+
+function updateScenarioButtons() {
+    const buttons = document.querySelectorAll('.scenario-btn');
+    for (const button of buttons) {
+        const isActive = button.dataset.scenario === activeScenario;
+        button.classList.toggle('active', isActive);
+    }
+}
+
 function initScene() {
     commitNodes = [];
     edges = [];
     pointers = [];
+
+    if (activeScenario === 'rebase') {
+        initRebaseScene();
+    } else {
+        initMergeScene();
+    }
+}
+
+function initRebaseScene() {
     rebasePlan = [];
-    activeAnimation = null;
-    animationFrame = 0;
-    planIndex = 0;
-    pauseFrames = 0;
+    rebaseAnimation = null;
+    rebaseFrame = 0;
+    rebasePlanIndex = 0;
+    rebasePauseFrames = 0;
     rebaseDone = false;
 
     const mainY = 210;
     const featureY = 390;
 
     const m1 = createCommit('m1', 'a1c4f90', 150, mainY, 'main');
-    const m2 = createCommit('m2', 'd2b744e', 320, mainY, 'main');
-    const m3 = createCommit('m3', 'f87e232', 500, mainY, 'main');
-    const m4 = createCommit('m4', '1ea03bf', 680, mainY, 'main');
+    const m2 = createCommit('m2', 'd2b744e', 340, mainY, 'main');
+    const m3 = createCommit('m3', 'f87e232', 530, mainY, 'main');
+    const m4 = createCommit('m4', '1ea03bf', 720, mainY, 'main');
 
-    const f1 = createCommit('f1', '9ca0f44', 320, featureY, 'feature');
-    const f2 = createCommit('f2', '6bf2310', 500, featureY, 'feature');
-    const f3 = createCommit('f3', '8d1ae55', 680, featureY, 'feature');
+    const f1 = createCommit('f1', '9ca0f44', 340, featureY, 'feature');
+    const f2 = createCommit('f2', '6bf2310', 530, featureY, 'feature');
+    const f3 = createCommit('f3', '8d1ae55', 720, featureY, 'feature');
 
-    createEdge(m1, m2, false);
-    createEdge(m2, m3, false);
-    createEdge(m3, m4, false);
+    createEdge(m1, m2, 'main');
+    createEdge(m2, m3, 'main');
+    createEdge(m3, m4, 'main');
 
-    createEdge(m2, f1, true);
-    createEdge(f1, f2, true);
-    createEdge(f2, f3, true);
+    createEdge(m2, f1, 'feature');
+    createEdge(f1, f2, 'feature');
+    createEdge(f2, f3, 'feature');
 
     pointers.push({ label: 'main', targetId: m4.id, color: color(...UI.main), yOffset: -70 });
     pointers.push({ label: 'feature', targetId: f3.id, color: color(...UI.feature), yOffset: 72 });
 
     rebasePlan = [
-        { oldId: f1.id, newId: 'f1r', hash: '3a9db10', message: 'Replay feature commit 1' },
-        { oldId: f2.id, newId: 'f2r', hash: '45bc9d2', message: 'Replay feature commit 2' },
-        { oldId: f3.id, newId: 'f3r', hash: 'af22133', message: 'Replay feature commit 3' }
+        { oldId: f1.id, newId: 'f1r', hash: '3a9db10', message: 'Replaying feature commit 1...' },
+        { oldId: f2.id, newId: 'f2r', hash: '45bc9d2', message: 'Replaying feature commit 2...' },
+        { oldId: f3.id, newId: 'f3r', hash: 'af22133', message: 'Replaying feature commit 3...' }
     ];
+}
+
+function initMergeScene() {
+    mergeAnimation = null;
+    mergeFrame = 0;
+    mergePauseFrames = MERGE_PAUSE_FRAMES;
+    mergeDone = false;
+
+    const mainY = 210;
+    const featureY = 390;
+
+    const m1 = createCommit('m1', 'a1c4f90', 150, mainY, 'main');
+    const m2 = createCommit('m2', 'd2b744e', 340, mainY, 'main');
+    const m3 = createCommit('m3', 'f87e232', 530, mainY, 'main');
+    const m4 = createCommit('m4', '1ea03bf', 720, mainY, 'main');
+
+    const f1 = createCommit('f1', '9ca0f44', 340, featureY, 'feature');
+    const f2 = createCommit('f2', '6bf2310', 530, featureY, 'feature');
+    const f3 = createCommit('f3', '8d1ae55', 720, featureY, 'feature');
+
+    createEdge(m1, m2, 'main');
+    createEdge(m2, m3, 'main');
+    createEdge(m3, m4, 'main');
+
+    createEdge(m2, f1, 'feature');
+    createEdge(f1, f2, 'feature');
+    createEdge(f2, f3, 'feature');
+
+    pointers.push({ label: 'main', targetId: m4.id, color: color(...UI.main), yOffset: -70 });
+    pointers.push({ label: 'feature', targetId: f3.id, color: color(...UI.feature), yOffset: 72 });
 }
 
 function createCommit(id, hash, x, y, lane) {
@@ -106,8 +191,8 @@ function createCommit(id, hash, x, y, lane) {
     return node;
 }
 
-function createEdge(fromNode, toNode, isFeature) {
-    edges.push({ from: fromNode.id, to: toNode.id, isFeature, alpha: 255 });
+function createEdge(fromNode, toNode, kind) {
+    edges.push({ from: fromNode.id, to: toNode.id, kind, alpha: 255 });
 }
 
 function updateRebaseAnimation() {
@@ -115,25 +200,25 @@ function updateRebaseAnimation() {
         return;
     }
 
-    if (pauseFrames > 0) {
-        pauseFrames -= 1;
+    if (rebasePauseFrames > 0) {
+        rebasePauseFrames -= 1;
         return;
     }
 
-    if (!activeAnimation) {
-        if (planIndex >= rebasePlan.length) {
+    if (!rebaseAnimation) {
+        if (rebasePlanIndex >= rebasePlan.length) {
             rebaseDone = true;
             return;
         }
-        startReplay(rebasePlan[planIndex]);
+        startReplay(rebasePlan[rebasePlanIndex]);
     }
 
-    animationFrame += 1;
-    const t = constrain(animationFrame / REBASE_STEP_FRAMES, 0, 1);
+    rebaseFrame += 1;
+    const t = constrain(rebaseFrame / REBASE_STEP_FRAMES, 0, 1);
     const eased = easeInOutCubic(t);
 
-    activeAnimation.node.x = lerp(activeAnimation.startX, activeAnimation.endX, eased);
-    activeAnimation.node.y = lerp(activeAnimation.startY, activeAnimation.endY, eased);
+    rebaseAnimation.node.x = lerp(rebaseAnimation.startX, rebaseAnimation.endX, eased);
+    rebaseAnimation.node.y = lerp(rebaseAnimation.startY, rebaseAnimation.endY, eased);
 
     if (t >= 1) {
         finishReplay();
@@ -143,7 +228,7 @@ function updateRebaseAnimation() {
 function startReplay(step) {
     const oldNode = getNode(step.oldId);
     const mainPointer = getPointer('main');
-    const mainHead = getNode(mainPointer.targetId);
+    const mainHead = mainPointer ? getNode(mainPointer.targetId) : null;
 
     if (!oldNode || !mainHead) {
         rebaseDone = true;
@@ -153,48 +238,130 @@ function startReplay(step) {
     const newNode = createCommit(step.newId, step.hash, oldNode.x, oldNode.y, 'rebased');
     newNode.alpha = 170;
 
-    // Space each rebased commit to the right of the previous one.
-    const horizontalSpacing = 170 + planIndex * COMMIT_RADIUS * 3;
+    // Keep replayed commits inside the pane while still spacing them apart.
+    const horizontalSpacing = 150 + rebasePlanIndex * 120;
+    const safeEndX = min(mainHead.x + horizontalSpacing, width - 90);
 
-    activeAnimation = {
+    rebaseAnimation = {
         step,
         oldNode,
         node: newNode,
         startX: oldNode.x,
         startY: oldNode.y,
-        endX: mainHead.x + horizontalSpacing,
+        endX: safeEndX,
         endY: mainHead.y,
         message: step.message
     };
-    animationFrame = 0;
+    rebaseFrame = 0;
 }
 
 function finishReplay() {
     const featurePointer = getPointer('feature');
-    const previousHead = getNode(featurePointer.targetId);
-    const replayed = activeAnimation.node;
+    const previousHead = featurePointer ? getNode(featurePointer.targetId) : null;
+    const replayed = rebaseAnimation.node;
 
     replayed.alpha = 255;
     replayed.lane = 'feature';
 
     const mainPointer = getPointer('main');
-    const mainHead = getNode(mainPointer.targetId);
+    const mainHead = mainPointer ? getNode(mainPointer.targetId) : null;
+    if (!featurePointer || !mainHead) {
+        rebaseDone = true;
+        return;
+    }
 
-    if (planIndex === 0) {
-        createEdge(mainHead, replayed, true);
-    } else {
-        createEdge(previousHead, replayed, true);
+    if (rebasePlanIndex === 0) {
+        createEdge(mainHead, replayed, 'feature');
+    } else if (previousHead) {
+        createEdge(previousHead, replayed, 'feature');
     }
 
     featurePointer.targetId = replayed.id;
-    activeAnimation.oldNode.superseded = true;
-    activeAnimation.oldNode.alpha = 75;
+    rebaseAnimation.oldNode.superseded = true;
+    rebaseAnimation.oldNode.alpha = 75;
 
-    fadeOriginalEdge(activeAnimation.oldNode.id);
+    fadeOriginalEdge(rebaseAnimation.oldNode.id);
 
-    activeAnimation = null;
-    planIndex += 1;
-    pauseFrames = REBASE_PAUSE_FRAMES;
+    rebaseAnimation = null;
+    rebasePlanIndex += 1;
+    rebasePauseFrames = REBASE_PAUSE_FRAMES;
+}
+
+function updateMergeAnimation() {
+    if (mergeDone) {
+        return;
+    }
+
+    if (mergePauseFrames > 0) {
+        mergePauseFrames -= 1;
+        return;
+    }
+
+    if (!mergeAnimation) {
+        startMergeCommit();
+    }
+
+    mergeFrame += 1;
+    const t = constrain(mergeFrame / MERGE_STEP_FRAMES, 0, 1);
+    const eased = easeInOutCubic(t);
+
+    mergeAnimation.node.x = lerp(mergeAnimation.startX, mergeAnimation.endX, eased);
+    mergeAnimation.node.y = lerp(mergeAnimation.startY, mergeAnimation.endY, eased);
+    mergeAnimation.node.alpha = lerp(120, 255, eased);
+
+    if (t >= 1) {
+        finishMergeCommit();
+    }
+}
+
+function startMergeCommit() {
+    const mainPointer = getPointer('main');
+    const featurePointer = getPointer('feature');
+    const mainHead = mainPointer ? getNode(mainPointer.targetId) : null;
+    const featureHead = featurePointer ? getNode(featurePointer.targetId) : null;
+
+    if (!mainHead || !featureHead) {
+        mergeDone = true;
+        return;
+    }
+
+    const startX = (mainHead.x + featureHead.x) / 2;
+    const startY = 110;
+    const endX = min(max(mainHead.x + 180, 860), width - 100);
+    const endY = 300;
+
+    const mergeNode = createCommit('mg1', 'c81fa07', startX, startY, 'merge');
+    mergeNode.alpha = 120;
+
+    mergeAnimation = {
+        node: mergeNode,
+        mainHead,
+        featureHead,
+        startX,
+        startY,
+        endX,
+        endY,
+        message: 'Creating merge commit from main and feature tips...'
+    };
+    mergeFrame = 0;
+}
+
+function finishMergeCommit() {
+    const mainPointer = getPointer('main');
+    if (!mainPointer) {
+        mergeDone = true;
+        return;
+    }
+
+    const mergeNode = mergeAnimation.node;
+    mergeNode.alpha = 255;
+
+    createEdge(mergeAnimation.mainHead, mergeNode, 'merge');
+    createEdge(mergeAnimation.featureHead, mergeNode, 'merge');
+
+    mainPointer.targetId = mergeNode.id;
+    mergeAnimation = null;
+    mergeDone = true;
 }
 
 function fadeOriginalEdge(fromId) {
@@ -220,7 +387,7 @@ function drawBackdrop() {
     textSize(12);
     textAlign(LEFT, CENTER);
     text('main', 88, 146);
-    text('feature (before -> after rebase)', 88, 336);
+    text(activeScenario === 'rebase' ? 'feature (before -> after rebase)' : 'feature (merged into main)', 88, 336);
 }
 
 function drawEdges() {
@@ -232,9 +399,15 @@ function drawEdges() {
         }
 
         const isDashed = fromNode.superseded || toNode.superseded;
-        stroke(edge.isFeature ? color(UI.feature[0], UI.feature[1], UI.feature[2], edge.alpha) : color(UI.main[0], UI.main[1], UI.main[2], edge.alpha));
-        strokeWeight(3);
+        if (edge.kind === 'main') {
+            stroke(UI.main[0], UI.main[1], UI.main[2], edge.alpha);
+        } else if (edge.kind === 'merge') {
+            stroke(UI.merge[0], UI.merge[1], UI.merge[2], edge.alpha);
+        } else {
+            stroke(UI.feature[0], UI.feature[1], UI.feature[2], edge.alpha);
+        }
 
+        strokeWeight(3);
         if (isDashed) {
             drawDashedLine(fromNode.x, fromNode.y, toNode.x, toNode.y, 8, 6);
         } else {
@@ -257,7 +430,6 @@ function drawCommitNodes() {
         noStroke();
         fill(12, 16, 22, node.alpha);
         text(node.hash.slice(0, 6), node.x, node.y);
-
         drawCommitLabel(node);
     }
 }
@@ -272,7 +444,6 @@ function drawCommitLabel(node) {
     fill(node.superseded ? 78 : 175, 188, 209, node.alpha);
     rectMode(CENTER);
     rect(node.x, y, labelWidth, 18, 6);
-
     fill(243, 246, 252, node.alpha);
     text(labelText, node.x, y + 0.5);
     rectMode(CORNER);
@@ -308,15 +479,10 @@ function drawHud() {
     fill(...UI.text);
     textAlign(LEFT, TOP);
     textSize(13);
-    text('Rebase Replay', 22, 20);
+    text(activeScenario === 'rebase' ? 'Rebase Replay' : 'Merge Replay', 22, 20);
 
-    const statusText = rebaseDone
-        ? 'Rebase complete: feature now sits on top of latest main.'
-        : activeAnimation
-            ? activeAnimation.message
-            : 'Preparing next replay step...';
     fill(...UI.muted);
-    text(statusText, 22, 42);
+    text(getStatusText(), 22, 42);
 
     fill(...UI.main);
     circle(width - 252, 28, 10);
@@ -326,20 +492,53 @@ function drawHud() {
     fill(...UI.feature);
     circle(width - 252, 52, 10);
     fill(...UI.text);
-    text('feature + replayed', width - 238, 44);
+    text('feature branch', width - 238, 44);
+
+    if (activeScenario === 'merge') {
+        fill(...UI.merge);
+        circle(width - 252, 76, 10);
+        fill(...UI.text);
+        text('merge edges/commit', width - 238, 68);
+    }
 }
 
 function syncStatusPanel() {
     const statusNode = document.getElementById('status-text');
-    if (!statusNode) {
-        return;
+    const cmdNode = document.getElementById('cmd-text');
+
+    if (cmdNode) {
+        cmdNode.textContent = getCommandText();
+    }
+    if (statusNode) {
+        statusNode.textContent = getStatusText();
+    }
+}
+
+function getCommandText() {
+    if (activeScenario === 'merge') {
+        return 'git checkout main ; git merge feature';
+    }
+    return 'git checkout feature ; git rebase main';
+}
+
+function getStatusText() {
+    if (activeScenario === 'merge') {
+        if (mergeDone) {
+            return 'Merge complete. main now points at the merge commit.';
+        }
+        if (mergeAnimation) {
+            return mergeAnimation.message;
+        }
+        return 'Preparing merge visualization...';
     }
 
-    statusNode.textContent = rebaseDone
-        ? 'Rebase complete. feature now points to the replayed tip.'
-        : activeAnimation
-            ? activeAnimation.message
-            : 'Preparing next replay step...';
+    if (rebaseDone) {
+        return 'Rebase complete. feature now points to the replayed tip.';
+    }
+    if (rebaseAnimation) {
+        return rebaseAnimation.message;
+    }
+    return 'Preparing next replay step...';
 }
 
 function paletteForLane(lane) {
@@ -348,6 +547,9 @@ function paletteForLane(lane) {
     }
     if (lane === 'rebased') {
         return { fill: color(255, 206, 161), stroke: color(233, 137, 61) };
+    }
+    if (lane === 'merge') {
+        return { fill: color(174, 255, 205), stroke: color(...UI.merge) };
     }
     return { fill: color(247, 173, 112), stroke: color(...UI.feature) };
 }

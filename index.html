@@ -16,6 +16,10 @@
 
         <section class="workspace">
             <div class="command-panel">
+                <div class="scenario-switch" role="tablist" aria-label="Visualization type">
+                    <button id="btn-rebase" class="scenario-btn active" data-scenario="rebase" type="button">Rebase</button>
+                    <button id="btn-merge" class="scenario-btn" data-scenario="merge" type="button">Merge</button>
+                </div>
                 <div class="prompt-label">command</div>
                 <code id="cmd-text">git checkout feature ; git rebase main</code>
                 <p id="status-text">Preparing replay...</p>

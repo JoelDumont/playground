@@ -26,7 +26,7 @@ body {
 }
 
 .app-shell {
-    max-width: 1100px;
+    max-width: 1320px;
     margin: 0 auto;
     padding: 16px;
 }
@@ -78,6 +78,30 @@ kbd {
     background: #0f141c;
 }
 
+.scenario-switch {
+    display: inline-flex;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+
+.scenario-btn {
+    border: 1px solid #41506a;
+    border-radius: 8px;
+    padding: 5px 11px;
+    background: #1a2230;
+    color: #c5d0e2;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    cursor: pointer;
+}
+
+.scenario-btn.active {
+    background: #2a3d57;
+    border-color: #5d86bd;
+    color: #e9f3ff;
+}
+
 .prompt-label {
     font-size: 11px;
     text-transform: uppercase;
@@ -103,6 +127,7 @@ kbd {
 #canvas-container {
     width: 100%;
     overflow-x: auto;
+    min-height: 620px;
 }
 
 canvas {
