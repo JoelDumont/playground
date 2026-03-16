@@ -1,16 +1,122 @@
+:root {
+    --bg-top: #2f3540;
+    --bg-bottom: #222831;
+    --panel: #171b22;
+    --panel-2: #12161d;
+    --stroke: #3b4556;
+    --text: #e6edf7;
+    --muted: #9ea9bb;
+    --main: #4aa3ff;
+    --feature: #f39b4a;
+}
+
+* {
+    box-sizing: border-box;
+}
+
 body {
-    font-family: Arial, sans-serif;
-    text-align: center;
-    margin: 20px;
-    background-color: #f0f0f0;
+    margin: 0;
+    min-height: 100vh;
+    font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+    color: var(--text);
+    background:
+        radial-gradient(circle at 20% -10%, #47546a 0%, transparent 42%),
+        radial-gradient(circle at 100% 10%, #3a4253 0%, transparent 36%),
+        linear-gradient(180deg, var(--bg-top), var(--bg-bottom));
+}
+
+.app-shell {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 16px;
+}
+
+.topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--stroke);
+    background: linear-gradient(180deg, #222a35, #1b212b);
+}
+
+.brand {
+    font-size: 18px;
+    letter-spacing: 0.4px;
+    font-weight: 700;
+}
+
+.hint {
+    color: var(--muted);
+    font-size: 14px;
+}
+
+kbd {
+    background: #2d3746;
+    border: 1px solid #465269;
+    border-bottom-color: #2f3747;
+    border-radius: 6px;
+    color: #f4f7fb;
+    padding: 2px 7px;
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 12px;
+}
+
+.workspace {
+    border-radius: 12px;
+    border: 1px solid var(--stroke);
+    background: linear-gradient(180deg, var(--panel), var(--panel-2));
+    box-shadow: 0 14px 35px rgba(8, 11, 16, 0.35);
+    overflow: hidden;
+}
+
+.command-panel {
+    padding: 10px 14px;
+    border-bottom: 1px solid #2d3646;
+    background: #0f141c;
+}
+
+.prompt-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    color: #8390a5;
+    margin-bottom: 4px;
+}
+
+#cmd-text {
+    display: inline-block;
+    font-family: Consolas, "Courier New", monospace;
+    color: #b9ff7b;
+    font-size: 14px;
+    margin-bottom: 6px;
+}
+
+#status-text {
+    margin: 0;
+    color: var(--muted);
+    font-size: 13px;
 }
 
 #canvas-container {
-    display: inline-block;
-    border: 2px solid #333;
-    margin-top: 20px;
+    width: 100%;
+    overflow-x: auto;
 }
 
 canvas {
     display: block;
+}
+
+@media (max-width: 768px) {
+    .topbar {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 6px;
+    }
+
+    .brand {
+        font-size: 16px;
+    }
 }

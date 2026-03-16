@@ -8,9 +8,21 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.6.0/p5.js"></script>
 </head>
 <body>
-    <h1>Git Rebase Visualizer</h1>
-    <p>Watch feature commits get replayed onto the updated main branch.</p>
-    <div id="canvas-container"></div>
+    <main class="app-shell">
+        <header class="topbar">
+            <div class="brand">Git Rebase Playground</div>
+            <div class="hint">Press <kbd>R</kbd> to restart</div>
+        </header>
+
+        <section class="workspace">
+            <div class="command-panel">
+                <div class="prompt-label">command</div>
+                <code id="cmd-text">git checkout feature ; git rebase main</code>
+                <p id="status-text">Preparing replay...</p>
+            </div>
+            <div id="canvas-container"></div>
+        </section>
+    </main>
     <script src="sketch.js"></script>
 </body>
 </html>

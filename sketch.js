@@ -5,6 +5,18 @@ const COMMIT_RADIUS = 26;
 const REBASE_STEP_FRAMES = 80;
 const REBASE_PAUSE_FRAMES = 30;
 
+const UI = {
+    background: [26, 31, 40],
+    panel: [31, 38, 49],
+    grid: [45, 54, 69],
+    text: [232, 238, 247],
+    muted: [150, 162, 182],
+    main: [74, 163, 255],
+    feature: [243, 155, 74],
+    active: [120, 255, 166],
+    ghost: [123, 133, 151]
+};
+
 let commitNodes = [];
 let edges = [];
 let pointers = [];
@@ -16,20 +28,21 @@ let pauseFrames = 0;
 let rebaseDone = false;
 
 function setup() {
-    const canvas = createCanvas(980, 640);
+    const canvas = createCanvas(1020, 620);
     canvas.parent('canvas-container');
-    textFont('monospace');
+    textFont('Consolas');
     initScene();
 }
 
 function draw() {
-    background(244, 247, 252);
+    background(...UI.background);
     drawBackdrop();
     updateRebaseAnimation();
     drawEdges();
     drawCommitNodes();
     drawBranchPointers();
-    drawLegendAndStatus();
+    drawHud();
+    syncStatusPanel();
 }
 
 function keyPressed() {
@@ -49,8 +62,8 @@ function initScene() {
     pauseFrames = 0;
     rebaseDone = false;
 
-    const mainY = 220;
-    const featureY = 420;
+    const mainY = 210;
+    const featureY = 390;
 
     const m1 = createCommit('m1', 'a1c4f90', 150, mainY, 'main');
     const m2 = createCommit('m2', 'd2b744e', 320, mainY, 'main');
@@ -69,8 +82,8 @@ function initScene() {
     createEdge(f1, f2, true);
     createEdge(f2, f3, true);
 
-    pointers.push({ label: 'main', targetId: m4.id, color: color(58, 98, 177), yOffset: -66 });
-    pointers.push({ label: 'feature', targetId: f3.id, color: color(194, 78, 51), yOffset: 66 });
+    pointers.push({ label: 'main', targetId: m4.id, color: color(...UI.main), yOffset: -70 });
+    pointers.push({ label: 'feature', targetId: f3.id, color: color(...UI.feature), yOffset: 72 });
 
     rebasePlan = [
         { oldId: f1.id, newId: 'f1r', hash: '3a9db10', message: 'Replay feature commit 1' },
@@ -194,18 +207,20 @@ function fadeOriginalEdge(fromId) {
 }
 
 function drawBackdrop() {
+    drawSubtleGrid();
+
     noStroke();
-    fill(223, 233, 248, 140);
-    rect(70, 140, width - 140, 160, 16);
+    fill(41, 49, 63, 180);
+    rect(70, 130, width - 140, 150, 12);
 
-    fill(250, 230, 220, 120);
-    rect(70, 340, width - 140, 180, 16);
+    fill(50, 45, 38, 185);
+    rect(70, 320, width - 140, 170, 12);
 
-    fill(40, 56, 76);
-    textSize(14);
+    fill(...UI.muted);
+    textSize(12);
     textAlign(LEFT, CENTER);
-    text('main branch timeline', 88, 156);
-    text('feature branch before/after rebase', 88, 356);
+    text('main', 88, 146);
+    text('feature (before -> after rebase)', 88, 336);
 }
 
 function drawEdges() {
@@ -217,11 +232,7 @@ function drawEdges() {
         }
 
         const isDashed = fromNode.superseded || toNode.superseded;
-        if (edge.isFeature) {
-            stroke(186, 88, 62, edge.alpha);
-        } else {
-            stroke(66, 110, 186, edge.alpha);
-        }
+        stroke(edge.isFeature ? color(UI.feature[0], UI.feature[1], UI.feature[2], edge.alpha) : color(UI.main[0], UI.main[1], UI.main[2], edge.alpha));
         strokeWeight(3);
 
         if (isDashed) {
@@ -234,7 +245,7 @@ function drawEdges() {
 
 function drawCommitNodes() {
     textAlign(CENTER, CENTER);
-    textSize(12);
+    textSize(11);
 
     for (const node of commitNodes) {
         const palette = paletteForLane(node.lane);
@@ -244,9 +255,27 @@ function drawCommitNodes() {
         circle(node.x, node.y, COMMIT_RADIUS * 2);
 
         noStroke();
-        fill(16, 22, 29, node.alpha);
+        fill(12, 16, 22, node.alpha);
         text(node.hash.slice(0, 6), node.x, node.y);
+
+        drawCommitLabel(node);
     }
+}
+
+function drawCommitLabel(node) {
+    const labelText = node.id;
+    textSize(11);
+    const labelWidth = textWidth(labelText) + 14;
+    const y = node.y - COMMIT_RADIUS - 16;
+
+    noStroke();
+    fill(node.superseded ? 78 : 175, 188, 209, node.alpha);
+    rectMode(CENTER);
+    rect(node.x, y, labelWidth, 18, 6);
+
+    fill(243, 246, 252, node.alpha);
+    text(labelText, node.x, y + 0.5);
+    rectMode(CORNER);
 }
 
 function drawBranchPointers() {
@@ -267,47 +296,60 @@ function drawBranchPointers() {
 
         noStroke();
         rectMode(CENTER);
-        rect(target.x, pointerY, 86, 28, 8);
-        fill(255);
+        rect(target.x, pointerY, 96, 28, 8);
+        fill(18, 22, 30);
         text(pointer.label, target.x, pointerY + 1);
         rectMode(CORNER);
     }
 }
 
-function drawLegendAndStatus() {
+function drawHud() {
     noStroke();
-    fill(27, 37, 49);
+    fill(...UI.text);
     textAlign(LEFT, TOP);
-    textSize(14);
-    text('Command: git checkout feature ; git rebase main', 22, 18);
+    textSize(13);
+    text('Rebase Replay', 22, 20);
 
     const statusText = rebaseDone
         ? 'Rebase complete: feature now sits on top of latest main.'
         : activeAnimation
             ? activeAnimation.message
             : 'Preparing next replay step...';
+    fill(...UI.muted);
     text(statusText, 22, 42);
-    text('Press R to restart', 22, 66);
 
-    fill(58, 98, 177);
-    circle(width - 270, 28, 12);
-    fill(27, 37, 49);
-    text('main commits', width - 255, 20);
+    fill(...UI.main);
+    circle(width - 252, 28, 10);
+    fill(...UI.text);
+    text('main branch', width - 238, 20);
 
-    fill(194, 78, 51);
-    circle(width - 270, 52, 12);
-    fill(27, 37, 49);
-    text('feature/replayed commits', width - 255, 44);
+    fill(...UI.feature);
+    circle(width - 252, 52, 10);
+    fill(...UI.text);
+    text('feature + replayed', width - 238, 44);
+}
+
+function syncStatusPanel() {
+    const statusNode = document.getElementById('status-text');
+    if (!statusNode) {
+        return;
+    }
+
+    statusNode.textContent = rebaseDone
+        ? 'Rebase complete. feature now points to the replayed tip.'
+        : activeAnimation
+            ? activeAnimation.message
+            : 'Preparing next replay step...';
 }
 
 function paletteForLane(lane) {
     if (lane === 'main') {
-        return { fill: color(148, 187, 255), stroke: color(58, 98, 177) };
+        return { fill: color(125, 189, 255), stroke: color(...UI.main) };
     }
     if (lane === 'rebased') {
-        return { fill: color(255, 216, 193), stroke: color(214, 105, 72) };
+        return { fill: color(255, 206, 161), stroke: color(233, 137, 61) };
     }
-    return { fill: color(255, 188, 165), stroke: color(194, 78, 51) };
+    return { fill: color(247, 173, 112), stroke: color(...UI.feature) };
 }
 
 function getNode(id) {
@@ -349,4 +391,17 @@ function easeInOutCubic(t) {
     return t < 0.5
         ? 4 * t * t * t
         : 1 - pow(-2 * t + 2, 3) / 2;
+}
+
+function drawSubtleGrid() {
+    stroke(UI.grid[0], UI.grid[1], UI.grid[2], 95);
+    strokeWeight(1);
+
+    for (let x = 0; x <= width; x += 40) {
+        line(x, 0, x, height);
+    }
+
+    for (let y = 0; y <= height; y += 40) {
+        line(0, y, width, y);
+    }
 }
