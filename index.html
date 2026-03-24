@@ -1,27 +1,31 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Git Rebase Visualizer</title>
+    <title>Git History Visualizer</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.6.0/p5.js"></script>
 </head>
+
 <body>
     <main class="app-shell">
         <header class="topbar">
-            <div class="brand">Git Rebase Playground</div>
+            <div class="brand">Git History Playground</div>
             <div class="hint">Press <kbd>R</kbd> to restart</div>
         </header>
 
         <section class="workspace">
             <div class="command-panel">
                 <div class="scenario-switch" role="tablist" aria-label="Visualization type">
-                    <button id="btn-rebase" class="scenario-btn active" data-scenario="rebase" type="button">Rebase</button>
+                    <button id="btn-rebase" class="scenario-btn active" data-scenario="rebase"
+                        type="button">Rebase</button>
                     <button id="btn-merge" class="scenario-btn" data-scenario="merge" type="button">Merge</button>
+                    <button id="btn-squash" class="scenario-btn" data-scenario="squash" type="button">Squash PR</button>
                 </div>
                 <div class="prompt-label">command</div>
-                <code id="cmd-text">git checkout feature / git rebase main</code>
+                <code id="cmd-text">git checkout feature ; git rebase main</code>
                 <p id="status-text">Preparing replay...</p>
             </div>
             <div id="canvas-container"></div>
@@ -29,4 +33,5 @@
     </main>
     <script src="sketch.js"></script>
 </body>
+
 </html>

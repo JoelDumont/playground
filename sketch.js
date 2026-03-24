@@ -7,6 +7,8 @@ const REBASE_STEP_FRAMES = 80;
 const REBASE_PAUSE_FRAMES = 30;
 const MERGE_STEP_FRAMES = 95;
 const MERGE_PAUSE_FRAMES = 40;
+const SQUASH_STEP_FRAMES = 95;
+const SQUASH_PAUSE_FRAMES = 40;
 
 const UI = {
     background: [26, 31, 40],
@@ -15,7 +17,8 @@ const UI = {
     muted: [150, 162, 182],
     main: [74, 163, 255],
     feature: [243, 155, 74],
-    merge: [120, 255, 166]
+    merge: [120, 255, 166],
+    squash: [255, 221, 113]
 };
 
 let activeScenario = 'rebase';
@@ -36,6 +39,11 @@ let mergeFrame = 0;
 let mergePauseFrames = 0;
 let mergeDone = false;
 
+let squashAnimation = null;
+let squashFrame = 0;
+let squashPauseFrames = 0;
+let squashDone = false;
+
 function setup() {
     const canvas = createCanvas(CANVAS_WIDTH, CANVAS_HEIGHT);
     canvas.parent('canvas-container');
@@ -50,8 +58,10 @@ function draw() {
 
     if (activeScenario === 'rebase') {
         updateRebaseAnimation();
-    } else {
+    } else if (activeScenario === 'merge') {
         updateMergeAnimation();
+    } else {
+        updateSquashAnimation();
     }
 
     drawEdges();
@@ -81,7 +91,7 @@ function bindScenarioControls() {
 }
 
 function setScenario(scenario) {
-    if (scenario !== 'rebase' && scenario !== 'merge') {
+    if (scenario !== 'rebase' && scenario !== 'merge' && scenario !== 'squash') {
         return;
     }
     activeScenario = scenario;
@@ -104,8 +114,10 @@ function initScene() {
 
     if (activeScenario === 'rebase') {
         initRebaseScene();
-    } else {
+    } else if (activeScenario === 'merge') {
         initMergeScene();
+    } else {
+        initSquashScene();
     }
 }
 
@@ -152,6 +164,36 @@ function initMergeScene() {
     mergeFrame = 0;
     mergePauseFrames = MERGE_PAUSE_FRAMES;
     mergeDone = false;
+
+    const mainY = 210;
+    const featureY = 390;
+
+    const m1 = createCommit('m1', 'a1c4f90', 150, mainY, 'main');
+    const m2 = createCommit('m2', 'd2b744e', 340, mainY, 'main');
+    const m3 = createCommit('m3', 'f87e232', 530, mainY, 'main');
+    const m4 = createCommit('m4', '1ea03bf', 720, mainY, 'main');
+
+    const f1 = createCommit('f1', '9ca0f44', 340, featureY, 'feature');
+    const f2 = createCommit('f2', '6bf2310', 530, featureY, 'feature');
+    const f3 = createCommit('f3', '8d1ae55', 720, featureY, 'feature');
+
+    createEdge(m1, m2, 'main');
+    createEdge(m2, m3, 'main');
+    createEdge(m3, m4, 'main');
+
+    createEdge(m2, f1, 'feature');
+    createEdge(f1, f2, 'feature');
+    createEdge(f2, f3, 'feature');
+
+    pointers.push({ label: 'main', targetId: m4.id, color: color(...UI.main), yOffset: -70 });
+    pointers.push({ label: 'feature', targetId: f3.id, color: color(...UI.feature), yOffset: 72 });
+}
+
+function initSquashScene() {
+    squashAnimation = null;
+    squashFrame = 0;
+    squashPauseFrames = SQUASH_PAUSE_FRAMES;
+    squashDone = false;
 
     const mainY = 210;
     const featureY = 390;
@@ -314,6 +356,33 @@ function updateMergeAnimation() {
     }
 }
 
+function updateSquashAnimation() {
+    if (squashDone) {
+        return;
+    }
+
+    if (squashPauseFrames > 0) {
+        squashPauseFrames -= 1;
+        return;
+    }
+
+    if (!squashAnimation) {
+        startSquashCommit();
+    }
+
+    squashFrame += 1;
+    const t = constrain(squashFrame / SQUASH_STEP_FRAMES, 0, 1);
+    const eased = easeInOutCubic(t);
+
+    squashAnimation.node.x = lerp(squashAnimation.startX, squashAnimation.endX, eased);
+    squashAnimation.node.y = lerp(squashAnimation.startY, squashAnimation.endY, eased);
+    squashAnimation.node.alpha = lerp(120, 255, eased);
+
+    if (t >= 1) {
+        finishSquashCommit();
+    }
+}
+
 function startMergeCommit() {
     const mainPointer = getPointer('main');
     const featurePointer = getPointer('feature');
@@ -364,6 +433,62 @@ function finishMergeCommit() {
     mergeDone = true;
 }
 
+function startSquashCommit() {
+    const mainPointer = getPointer('main');
+    const featurePointer = getPointer('feature');
+    const mainHead = mainPointer ? getNode(mainPointer.targetId) : null;
+    const featureHead = featurePointer ? getNode(featurePointer.targetId) : null;
+
+    if (!mainHead || !featureHead) {
+        squashDone = true;
+        return;
+    }
+
+    const startX = featureHead.x;
+    const startY = featureHead.y;
+    const endX = min(max(mainHead.x + 190, 870), width - 100);
+    const endY = mainHead.y;
+
+    const squashNode = createCommit('sq1', 'de3bf2a', startX, startY, 'squash');
+    squashNode.alpha = 120;
+
+    squashAnimation = {
+        node: squashNode,
+        mainHead,
+        startX,
+        startY,
+        endX,
+        endY,
+        message: 'Squashing feature commits into one commit on main...'
+    };
+    squashFrame = 0;
+}
+
+function finishSquashCommit() {
+    const mainPointer = getPointer('main');
+    if (!mainPointer) {
+        squashDone = true;
+        return;
+    }
+
+    const squashNode = squashAnimation.node;
+    squashNode.alpha = 255;
+
+    createEdge(squashAnimation.mainHead, squashNode, 'squash');
+    mainPointer.targetId = squashNode.id;
+
+    for (const node of commitNodes) {
+        if (node.lane === 'feature') {
+            node.superseded = true;
+            node.alpha = 80;
+            fadeOriginalEdge(node.id);
+        }
+    }
+
+    squashAnimation = null;
+    squashDone = true;
+}
+
 function fadeOriginalEdge(fromId) {
     for (let i = 0; i < edges.length; i++) {
         const edge = edges[i];
@@ -387,7 +512,13 @@ function drawBackdrop() {
     textSize(12);
     textAlign(LEFT, CENTER);
     text('main', 88, 146);
-    text(activeScenario === 'rebase' ? 'feature (before -> after rebase)' : 'feature (merged into main)', 88, 336);
+    if (activeScenario === 'rebase') {
+        text('feature (before -> after rebase)', 88, 336);
+    } else if (activeScenario === 'merge') {
+        text('feature (merged into main)', 88, 336);
+    } else {
+        text('feature (squashed into one commit)', 88, 336);
+    }
 }
 
 function drawEdges() {
@@ -403,6 +534,8 @@ function drawEdges() {
             stroke(UI.main[0], UI.main[1], UI.main[2], edge.alpha);
         } else if (edge.kind === 'merge') {
             stroke(UI.merge[0], UI.merge[1], UI.merge[2], edge.alpha);
+        } else if (edge.kind === 'squash') {
+            stroke(UI.squash[0], UI.squash[1], UI.squash[2], edge.alpha);
         } else {
             stroke(UI.feature[0], UI.feature[1], UI.feature[2], edge.alpha);
         }
@@ -479,7 +612,13 @@ function drawHud() {
     fill(...UI.text);
     textAlign(LEFT, TOP);
     textSize(13);
-    text(activeScenario === 'rebase' ? 'Rebase Replay' : 'Merge Replay', 22, 20);
+    if (activeScenario === 'rebase') {
+        text('Rebase Replay', 22, 20);
+    } else if (activeScenario === 'merge') {
+        text('Merge Replay', 22, 20);
+    } else {
+        text('Squash Replay', 22, 20);
+    }
 
     fill(...UI.muted);
     text(getStatusText(), 22, 42);
@@ -499,6 +638,11 @@ function drawHud() {
         circle(width - 252, 76, 10);
         fill(...UI.text);
         text('merge edges/commit', width - 238, 68);
+    } else if (activeScenario === 'squash') {
+        fill(...UI.squash);
+        circle(width - 252, 76, 10);
+        fill(...UI.text);
+        text('squash commit on main', width - 238, 68);
     }
 }
 
@@ -518,6 +662,9 @@ function getCommandText() {
     if (activeScenario === 'merge') {
         return 'git checkout main ; git merge feature';
     }
+    if (activeScenario === 'squash') {
+        return 'git checkout main ; git merge --squash feature ; git commit';
+    }
     return 'git checkout feature ; git rebase main';
 }
 
@@ -530,6 +677,16 @@ function getStatusText() {
             return mergeAnimation.message;
         }
         return 'Preparing merge visualization...';
+    }
+
+    if (activeScenario === 'squash') {
+        if (squashDone) {
+            return 'Squash complete. main now has one combined commit from feature.';
+        }
+        if (squashAnimation) {
+            return squashAnimation.message;
+        }
+        return 'Preparing squash visualization...';
     }
 
     if (rebaseDone) {
@@ -550,6 +707,9 @@ function paletteForLane(lane) {
     }
     if (lane === 'merge') {
         return { fill: color(174, 255, 205), stroke: color(...UI.merge) };
+    }
+    if (lane === 'squash') {
+        return { fill: color(255, 238, 165), stroke: color(...UI.squash) };
     }
     return { fill: color(247, 173, 112), stroke: color(...UI.feature) };
 }
